@@ -1,0 +1,1 @@
+Images placed in this directory can be drawn on the back of dominos that are face down like those in the boneyard or the computer's hand. They are not used for dominos that are face up in the human player's hand or on the table.
