@@ -32,6 +32,11 @@ Use [pre-commit](https://pre-commit.com/) to enforce code quality before each co
 - Run manually: `pre-commit run --all-files`
 - Configuration lives in `.pre-commit-config.yaml`
 
+**Always run `pre-commit run --all-files` (or `ruff check .` and `ruff format .`) before
+creating or pushing a pull request**, and fix every violation before committing.
+If pre-commit.ci creates an auto-fix commit, pull it in immediately (`git pull`) and
+re-run pre-commit locally to confirm there are no remaining violations.
+
 When adding new linting or formatting hooks, add them to `.pre-commit-config.yaml`
 rather than running tools ad-hoc.
 
@@ -42,6 +47,37 @@ Use [pytest](https://docs.pytest.org/) for all tests.
 - Tests live in the `tests/` directory
 - New features and bug fixes should include tests in `tests/`
 - Test files are named `test_*.py`
+
+**Test dependency group:** `pytest` must always be listed in **both**
+`[project.optional-dependencies].test` and `[dependency-groups].test` in
+`pyproject.toml`.  The GitHub Actions workflow installs dependencies with
+`pip install .[test]`, which reads `[project.optional-dependencies]`; uv reads
+`[dependency-groups]`.  Keeping both in sync ensures `pytest` is available in
+all environments.
+
+### CI / GitHub Actions
+
+GitHub Actions should `uses: astral-sh/setup-uv` and prefer `uv pip install`
+over `pip install`.
+
+After pushing a branch or creating a PR, **always** check the status of the
+GitHub Actions workflow runs and pre-commit.ci:
+
+1. Use `list_workflow_runs` to find the latest run for your branch.
+2. Use `get_job_logs` (with `failed_only=true`) to read failure details.
+3. Fix every failure and push a corrective commit.
+4. Repeat until all checks are green.
+
+Common failure patterns to watch for:
+
+- **`pytest: command not found` (exit 127):** `pytest` is missing from
+  `[project.optional-dependencies].test`.  Add it there.
+- **ruff check / ruff format failures:** Run `ruff check` and `ruff format`
+  locally, fix all violations, and commit before pushing.
+- **pyproject-fmt imposes strict syntax on pypproject.toml** Run
+  pyproject-fmt locally, fix all violations, and commit before pushing
+- **pre-commit.ci auto-fix commits:** Pull them in and re-run pre-commit
+  locally to verify nothing remains.
 
 ---
 
@@ -55,9 +91,9 @@ The PyScript UI (`dominos_ui_on_pyscript.py`) implements
 - Dominoes can only be played against matching numbers.
 - If no domino in a player's hand matches an open end, the player must draw
   from the boneyard until a playable domino is found or only 2 remain.
-- If all open ends add up to a multiple of 5 the player scores `sum // 5` and
-  goes again.
-- If the player plays doubles they get to go again.  Doubles are played
+- If all open ends add up to a multiple of 5, the player scores `sum // 5`
+  and goes again.
+- If the player plays doubles, they get to go again.  Doubles are played
   sideways (perpendicular to the line of play) and count 2× when scoring.
 - The first double played becomes the **spinner**: once both horizontal ends
   have been played, vertical branches grow up and down from it.
@@ -128,6 +164,9 @@ resizes it to 200 × 400 px, and re-encodes it as a JPEG (quality 80) to keep
 the embedded HTML compact.  The result is stored in the DOM element
 `#facedown-image-uri` and loaded at PyScript startup into `_FACEDOWN_IMAGE_URI`.
 
+The facedown image should always be rotated with the domino so that the top of
+the image is at the top of the domino, whether it is horizontal or vertical.
+
 The same rotation logic (portrait vs landscape) is applied to face-down bones.
 
 ---
@@ -152,7 +191,7 @@ The same rotation logic (portrait vs landscape) is applied to face-down bones.
   all assets must be embedded as base64 data URIs at page-generation time.
 
 - **Why Pillow for the face-down image?**  The source PNG can be very large
-  (e.g. 36 MB at 3024 × 4032 px 16-bit).  Pillow is used to resize to
+  (e.g., 36 MB at 3024 × 4032 px 16-bit).  Pillow is used to resize to
   200 × 400 and re-encode as JPEG before embedding, keeping the HTML file size
   manageable.  Pillow is listed as a script dependency in the PEP 723 metadata
   and in the CI workflow's pip install step.  If Pillow is unavailable,

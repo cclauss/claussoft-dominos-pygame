@@ -16,6 +16,9 @@ dependencies = [
   "pillow",
   "pydantic",
 ]
+optional-dependencies.test = [
+  "pytest",
+]
 
 [dependency-groups]
 test = [
