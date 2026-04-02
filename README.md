@@ -34,4 +34,3 @@ pytest
 The test suite covers game-state serialization, the board data structures
 (`PlayedDomino` / `PlayedDominoes`), scoring logic, and the bone-size
 height-constraint formula.
-
