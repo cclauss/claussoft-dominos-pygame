@@ -1045,13 +1045,13 @@ def _hand_spacing(panel_width: int, n: int, surf_w: int) -> int:
 
     Args:
         panel_width: full pixel width of the hand panel.
-        n: number of bones to display.
+        n: number of bones to display.  Must be >= 1 when called.
         surf_w: pixel width of a single bone surface.
     """
     if n <= 0:
-        return HAND_BONE_GAP_PX
-    equal = (panel_width - n * surf_w) // (n + 1)
-    return max(HAND_BONE_GAP_PX, equal)
+        return 0
+    gap = (panel_width - n * surf_w) // (n + 1)
+    return max(HAND_BONE_GAP_PX, gap)
 
 
 # ---------------------------------------------------------------------------
