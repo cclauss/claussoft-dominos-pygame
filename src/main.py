@@ -49,6 +49,7 @@ SCORE_W = 158
 GAP = 6
 BONE_W = 40  # half-size (px) used for domino surfaces
 HAND_BONE_GAP_PX = 24  # wider gap between bones in hands and boneyard
+HAND_H_PADDING = 16  # total horizontal padding reserved at the edges of hand panels
 
 BG_COLOR: tuple[int, int, int] = (45, 90, 27)
 BONE_FG: tuple[int, int, int] = (255, 255, 255)
@@ -1032,6 +1033,23 @@ def _blit_label(
     screen.blit(font.render(text, True, color), (x, y))
 
 
+def _hand_bone_gap(panel_width: int, n: int, surf_w: int) -> int:
+    """Return the gap (px) between bones for a hand panel.
+
+    Bones are spread evenly across the panel, but never closer than
+    HAND_BONE_GAP_PX.
+
+    Args:
+        panel_width: full pixel width of the hand panel.
+        n: number of bones to display.
+        surf_w: pixel width of a single bone surface.
+    """
+    if n <= 1:
+        return 0
+    evenly_spread = (panel_width - HAND_H_PADDING - n * surf_w) // (n - 1)
+    return max(HAND_BONE_GAP_PX, evenly_spread)
+
+
 # ---------------------------------------------------------------------------
 # Section renderers
 # ---------------------------------------------------------------------------
@@ -1054,7 +1072,7 @@ def _render_cpu_hand(screen: pygame.Surface, font: pygame.font.Font, rect: pygam
     surf_w = bw + 6  # portrait width
     surf_h = 2 * bw + 10  # portrait height
     n = len(_hand1)
-    gap = max(HAND_BONE_GAP_PX, (rect.width - 16 - n * surf_w) // max(1, n - 1)) if n > 1 else 0
+    gap = _hand_bone_gap(rect.width, n, surf_w)
     total_w = n * surf_w + max(0, n - 1) * gap
     bx = rect.x + max(8, (rect.width - total_w) // 2)
     by = rect.y + (rect.height - surf_h) // 2 + 8
@@ -1287,7 +1305,7 @@ def _render_player_hand(
     surf_w = bw + 6
     surf_h = 2 * bw + 10
     n = len(_hand0)
-    gap = max(HAND_BONE_GAP_PX, (rect.width - 16 - n * surf_w) // max(1, n - 1)) if n > 1 else 0
+    gap = _hand_bone_gap(rect.width, n, surf_w)
     total_w = n * surf_w + max(0, n - 1) * gap
     bx = rect.x + max(8, (rect.width - total_w) // 2)
     by = rect.y + (rect.height - surf_h) // 2 + 8
