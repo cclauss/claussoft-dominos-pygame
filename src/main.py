@@ -40,7 +40,7 @@ _COMPUTER_PLAY_DELAY_MS = 1200  # ms delay before the computer plays
 WINDOW_W = 1200
 WINDOW_H = 800
 FPS = 30
-HEADER_H = 36
+HEADER_H = 0
 CPU_HAND_H = 114
 PLAYER_HAND_H = 114
 STATUS_H = 84
@@ -48,12 +48,14 @@ BONEYARD_W = 148
 SCORE_W = 158
 GAP = 6
 BONE_W = 40  # half-size (px) used for domino surfaces
+HAND_BONE_GAP_PX = 24  # wider gap between bones in hands and boneyard
+HAND_H_PADDING = 16  # total horizontal padding reserved at the edges of hand panels
 
 BG_COLOR: tuple[int, int, int] = (45, 90, 27)
-BONE_FG: tuple[int, int, int] = (245, 235, 210)
-BONE_BORDER: tuple[int, int, int] = (30, 30, 30)
-PIP_COLOR: tuple[int, int, int] = (20, 20, 20)
-DIVIDER_COLOR: tuple[int, int, int] = (80, 80, 80)
+BONE_FG: tuple[int, int, int] = (255, 255, 255)
+BONE_BORDER: tuple[int, int, int] = (0, 0, 200)
+PIP_COLOR: tuple[int, int, int] = (0, 0, 200)
+DIVIDER_COLOR: tuple[int, int, int] = (0, 0, 200)
 TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
 GOLD_COLOR: tuple[int, int, int] = (255, 215, 0)
 SELECTED_OUTLINE: tuple[int, int, int] = (255, 215, 0)
@@ -998,6 +1000,7 @@ def _print_board_state(player_idx: int, bone_played: list[int]) -> None:
     pips = _played_dominoes.playable_pips()
     pip_text = "(any)" if pips is None else str(sorted(pips))
     print(f"Playable: {pip_text}, Value: {_played_dominoes.score()}")
+    print()
 
 
 # ---------------------------------------------------------------------------
@@ -1030,6 +1033,23 @@ def _blit_label(
     screen.blit(font.render(text, True, color), (x, y))
 
 
+def _hand_bone_gap(panel_width: int, n: int, surf_w: int) -> int:
+    """Return the gap (px) between bones for a hand panel.
+
+    Bones are spread evenly across the panel, but never closer than
+    HAND_BONE_GAP_PX.
+
+    Args:
+        panel_width: full pixel width of the hand panel.
+        n: number of bones to display.
+        surf_w: pixel width of a single bone surface.
+    """
+    if n <= 1:
+        return 0
+    evenly_spread = (panel_width - HAND_H_PADDING - n * surf_w) // (n - 1)
+    return max(HAND_BONE_GAP_PX, evenly_spread)
+
+
 # ---------------------------------------------------------------------------
 # Section renderers
 # ---------------------------------------------------------------------------
@@ -1051,13 +1071,15 @@ def _render_cpu_hand(screen: pygame.Surface, font: pygame.font.Font, rect: pygam
     bw = BONE_W
     surf_w = bw + 6  # portrait width
     surf_h = 2 * bw + 10  # portrait height
-    total_w = len(_hand1) * surf_w + (len(_hand1) - 1) * _BONE_GAP_PX
-    bx = rect.x + (rect.width - total_w) // 2
+    n = len(_hand1)
+    gap = _hand_bone_gap(rect.width, n, surf_w)
+    total_w = n * surf_w + max(0, n - 1) * gap
+    bx = rect.x + max(8, (rect.width - total_w) // 2)
     by = rect.y + (rect.height - surf_h) // 2 + 8
     for _ in _hand1:
         surf = _make_facedown_surface(bw, horizontal=False, skin=_active_facedown)
         screen.blit(surf, (bx, by))
-        bx += surf_w + _BONE_GAP_PX
+        bx += surf_w + gap
 
 
 def _render_boneyard(
@@ -1088,7 +1110,7 @@ def _render_boneyard(
         screen.blit(surf, (bx, y))
         if _needs_boneyard_draw and not _game_over:
             targets.append((pygame.Rect(bx, y, surf_w, surf_h), "draw_boneyard", {}))
-        y += surf_h + 2
+        y += surf_h + HAND_BONE_GAP_PX
     if _needs_boneyard_draw:
         lbl = font.render("Click to draw", True, GOLD_COLOR)
         screen.blit(lbl, (rect.x + (rect.width - lbl.get_width()) // 2, rect.bottom - 20))
@@ -1182,7 +1204,8 @@ def _render_play_area(
         has_sel = _selected_bone is not None and _current_player == 0 and not _game_over
         hint = "Click a bone in your hand, then click here to play" if has_sel else "Play area"
         color = DROP_ZONE_COLOR if has_sel else (150, 150, 150)
-        _blit_label(screen, font, hint, rect.x + 8, rect.centery - 8, color)
+        lbl = font.render(hint, True, color)
+        screen.blit(lbl, lbl.get_rect(centerx=rect.centerx, centery=rect.centery))
         if has_sel:
             targets.append((rect, "play_first", {}))
         return
@@ -1281,8 +1304,10 @@ def _render_player_hand(
     bw = BONE_W
     surf_w = bw + 6
     surf_h = 2 * bw + 10
-    total_w = len(_hand0) * surf_w + (len(_hand0) - 1) * _BONE_GAP_PX
-    bx = rect.x + max(4, (rect.width - total_w) // 2)
+    n = len(_hand0)
+    gap = _hand_bone_gap(rect.width, n, surf_w)
+    total_w = n * surf_w + max(0, n - 1) * gap
+    bx = rect.x + max(8, (rect.width - total_w) // 2)
     by = rect.y + (rect.height - surf_h) // 2 + 8
     is_human_turn = _current_player == 0 and not _game_over and not _needs_boneyard_draw
     for bone in _hand0:
@@ -1291,7 +1316,7 @@ def _render_player_hand(
         screen.blit(surf, (bx, by))
         if is_human_turn:
             targets.append((pygame.Rect(bx, by, surf_w, surf_h), "select_hand", {"bone": bone}))
-        bx += surf_w + _BONE_GAP_PX
+        bx += surf_w + gap
 
 
 def _render_status(screen: pygame.Surface, font: pygame.font.Font, rect: pygame.Rect) -> None:
@@ -1330,9 +1355,8 @@ def _render_all(screen: pygame.Surface, font_sm: pygame.font.Font, font_lg: pyga
     screen.fill(BG_COLOR)
     sw, sh = screen.get_size()
 
-    header_rect = pygame.Rect(0, 0, sw, HEADER_H)
-    cpu_rect = pygame.Rect(0, HEADER_H, sw, CPU_HAND_H)
-    mid_y = HEADER_H + CPU_HAND_H + GAP
+    cpu_rect = pygame.Rect(0, 0, sw, CPU_HAND_H)
+    mid_y = CPU_HAND_H + GAP
     mid_h = sh - mid_y - PLAYER_HAND_H - STATUS_H - 3 * GAP
     boneyard_rect = pygame.Rect(GAP, mid_y, BONEYARD_W, mid_h)
     play_rect = pygame.Rect(
@@ -1345,7 +1369,6 @@ def _render_all(screen: pygame.Surface, font_sm: pygame.font.Font, font_lg: pyga
     hand_rect = pygame.Rect(0, mid_y + mid_h + GAP, sw, PLAYER_HAND_H)
     status_rect = pygame.Rect(0, sh - STATUS_H, sw, STATUS_H)
 
-    _render_header(screen, font_lg, header_rect)
     _render_cpu_hand(screen, font_sm, cpu_rect)
     _render_boneyard(screen, font_sm, boneyard_rect, targets)
     _render_play_area(screen, font_sm, play_rect, targets)
