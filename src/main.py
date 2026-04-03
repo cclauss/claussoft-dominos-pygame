@@ -49,9 +49,8 @@ SCORE_W = 158
 GAP = 6
 BONE_W = 40  # half-size (px) used for domino surfaces
 HAND_BONE_GAP_PX = 24  # wider gap between bones in hands and boneyard
-HAND_H_PADDING = 16  # total horizontal padding reserved at the edges of hand panels
 
-BG_COLOR: tuple[int, int, int] = (45, 90, 27)
+BG_COLOR: tuple[int, int, int] = (80, 150, 55)
 BONE_FG: tuple[int, int, int] = (255, 255, 255)
 BONE_BORDER: tuple[int, int, int] = (0, 0, 200)
 PIP_COLOR: tuple[int, int, int] = (0, 0, 200)
@@ -887,7 +886,12 @@ def _computer_play() -> None:
         ),
     )
     opts = _play_options(best[0], best[1]) if not _played_dominoes.is_empty() else []
-    tgt = opts[0] if len(opts) <= 1 else _best_direction_for(best[0], best[1], opts)
+    if not opts:
+        tgt = None
+    elif len(opts) == 1:
+        tgt = opts[0]
+    else:
+        tgt = _best_direction_for(best[0], best[1], opts)
     if _apply_play_to_hand(best[0], best[1], _hand1, target_end=tgt):
         _set_message(f"Computer played [{best[0]}|{best[1]}].")
         _after_play(1, best)
@@ -1015,7 +1019,7 @@ def _draw_panel(
     highlight: bool = False,
 ) -> None:
     """Draw a filled rounded panel with a thin border."""
-    bg = DRAW_MODE_BG if highlight else (0, 0, 0)
+    bg = DRAW_MODE_BG if highlight else BG_COLOR
     border = DRAW_MODE_BORDER if highlight else (80, 80, 80)
     pygame.draw.rect(screen, bg, rect, border_radius=6)
     pygame.draw.rect(screen, border, rect, 2, border_radius=6)
@@ -1033,21 +1037,21 @@ def _blit_label(
     screen.blit(font.render(text, True, color), (x, y))
 
 
-def _hand_bone_gap(panel_width: int, n: int, surf_w: int) -> int:
-    """Return the gap (px) between bones for a hand panel.
+def _hand_spacing(panel_width: int, n: int, surf_w: int) -> int:
+    """Return the equal spacing (px) used at the edges and between bones in a hand panel.
 
-    Bones are spread evenly across the panel, but never closer than
-    HAND_BONE_GAP_PX.
+    All n+1 gaps (left edge, n-1 inter-bone gaps, right edge) are the same
+    width, and are never smaller than HAND_BONE_GAP_PX.
 
     Args:
         panel_width: full pixel width of the hand panel.
         n: number of bones to display.
         surf_w: pixel width of a single bone surface.
     """
-    if n <= 1:
-        return 0
-    evenly_spread = (panel_width - HAND_H_PADDING - n * surf_w) // (n - 1)
-    return max(HAND_BONE_GAP_PX, evenly_spread)
+    if n <= 0:
+        return HAND_BONE_GAP_PX
+    equal = (panel_width - n * surf_w) // (n + 1)
+    return max(HAND_BONE_GAP_PX, equal)
 
 
 # ---------------------------------------------------------------------------
@@ -1072,9 +1076,8 @@ def _render_cpu_hand(screen: pygame.Surface, font: pygame.font.Font, rect: pygam
     surf_w = bw + 6  # portrait width
     surf_h = 2 * bw + 10  # portrait height
     n = len(_hand1)
-    gap = _hand_bone_gap(rect.width, n, surf_w)
-    total_w = n * surf_w + max(0, n - 1) * gap
-    bx = rect.x + max(8, (rect.width - total_w) // 2)
+    gap = _hand_spacing(rect.width, n, surf_w)
+    bx = rect.x + gap
     by = rect.y + (rect.height - surf_h) // 2 + 8
     for _ in _hand1:
         surf = _make_facedown_surface(bw, horizontal=False, skin=_active_facedown)
@@ -1198,7 +1201,7 @@ def _render_play_area(
     targets: list[tuple[pygame.Rect, str, dict[str, object]]],
 ) -> None:
     """Render the play area including the domino chain and drop-zone indicators."""
-    pygame.draw.rect(screen, (20, 60, 20), rect, border_radius=6)
+    pygame.draw.rect(screen, BG_COLOR, rect, border_radius=6)
     pygame.draw.rect(screen, (150, 180, 150), rect, 2, border_radius=6)
     if _played_dominoes.is_empty():
         has_sel = _selected_bone is not None and _current_player == 0 and not _game_over
@@ -1305,9 +1308,8 @@ def _render_player_hand(
     surf_w = bw + 6
     surf_h = 2 * bw + 10
     n = len(_hand0)
-    gap = _hand_bone_gap(rect.width, n, surf_w)
-    total_w = n * surf_w + max(0, n - 1) * gap
-    bx = rect.x + max(8, (rect.width - total_w) // 2)
+    gap = _hand_spacing(rect.width, n, surf_w)
+    bx = rect.x + gap
     by = rect.y + (rect.height - surf_h) // 2 + 8
     is_human_turn = _current_player == 0 and not _game_over and not _needs_boneyard_draw
     for bone in _hand0:
